@@ -3,6 +3,7 @@
 #include <invader/tag/parser/parser.hpp>
 #include <invader/tag/parser/parser_struct.hpp>
 #include <invader/tag/hek/header.hpp>
+#include "../../crc/crc32.h"
 
 namespace Invader::Parser {
     ParserStructValue::ParserStructValue(
@@ -851,6 +852,8 @@ namespace Invader::Parser {
             struct_data.insert(data.begin(), struct_data.begin(), struct_data.end());
         }
 
+        reinterpret_cast<ArchivedStructHeader *>(data.data())->crc32 = ~crc32(0, data.data() + sizeof(header), data.size() - sizeof(header));
+
         return data;
     }
 
@@ -869,6 +872,15 @@ namespace Invader::Parser {
 
         std::vector<std::unique_ptr<ParserStruct>> structs;
         std::uint32_t remainder = header->count.read();
+
+        std::size_t offset = 0;
+
+        for(std::uint32_t i = 0; i < remainder; i++) {
+            // TODO: parse everything
+            std::terminate();
+        }
+
+        return structs;
     }
 
     std::unique_ptr<ParserStruct> ParserStruct::parse_archived_struct(const std::byte *data, std::size_t data_size) {
