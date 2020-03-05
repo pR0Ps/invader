@@ -17,6 +17,15 @@ namespace Invader {
 namespace Invader::Parser {
     struct ParserStruct;
 
+    struct ArchivedStructHeader {
+        HEK::TagString struct_name;
+        HEK::BigEndian<std::uint32_t> count;
+        HEK::BigEndian<std::uint32_t> crc32;
+        enum ArchiveVersion : std::uint32_t { ARCHIVE_VERSION = 1 } version = ARCHIVE_VERSION;
+        HEK::BigEndian<std::uint32_t> reserved[5];
+    };
+    static_assert(sizeof(ArchivedStructHeader) == 0x40);
+
     struct Dependency {
         TagClassInt tag_class_int;
         std::string path;
@@ -689,6 +698,41 @@ namespace Invader::Parser {
          * @return all tag classes
          */
         static std::vector<TagClassInt> all_tag_classes(bool exclude_subclasses);
+
+        /**
+         * Parse the archived structs and generate a vector of them
+         * @param  data      data to read
+         * @param  data_size data size
+         * @return           struct
+         */
+        static std::vector<std::unique_ptr<ParserStruct>> parse_archived_structs(const std::byte *data, std::size_t data_size);
+
+        /**
+         * Parse a single archived struct
+         * @param  data      data to read
+         * @param  data_size data size
+         * @return           struct
+         */
+        static std::unique_ptr<ParserStruct> parse_archived_struct(const std::byte *data, std::size_t data_size);
+
+        /**
+         * Archive the structs
+         * @param first first struct to archive
+         * @param count number of structs to archive
+         */
+        static std::vector<std::byte> archive_structs(ParserStruct *first, std::size_t count);
+
+        /**
+         * Get the name of the struct
+         * @return struct
+         */
+        virtual const char *get_struct_name() const noexcept = 0;
+
+        /**
+         * Clone the struct. The resulting struct can be safely casted into its main class
+         * @return cloned struct
+         */
+        virtual std::unique_ptr<ParserStruct> clone() const = 0;
 
         /**
          * Check for broken enums

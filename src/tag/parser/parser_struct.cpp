@@ -826,4 +826,52 @@ namespace Invader::Parser {
 
         return classes;
     }
+
+
+    std::vector<std::byte> ParserStruct::archive_structs(ParserStruct *first, std::size_t count) {
+        if(count == 0) {
+            eprintf_error("ParserStruct::archive_structs(): 0 structs passed");
+            throw std::exception();
+        }
+
+        // Let's begin
+        auto *name = first->get_struct_name();
+        std::vector<std::byte> data(sizeof(ArchivedStructHeader));
+        auto &header = *reinterpret_cast<ArchivedStructHeader *>(data.data());
+        std::strncpy(header.struct_name.string, name, sizeof(header.struct_name.string));
+        header.count = static_cast<std::uint32_t>(count);
+        for(std::size_t i = 0; i < count; i++) {
+            auto &element = first[i];
+            auto *name = element.get_struct_name();
+            if(std::strcmp(element.get_struct_name(), name) != 0) {
+                eprintf_error("ParserStruct::archive_structs(): struct mismatched (%s passed; espected %s)", name, name);
+                throw std::exception();
+            }
+            auto struct_data = element.generate_hek_tag_data();
+            struct_data.insert(data.begin(), struct_data.begin(), struct_data.end());
+        }
+
+        return data;
+    }
+
+    std::vector<std::unique_ptr<ParserStruct>> ParserStruct::parse_archived_structs(const std::byte *data, std::size_t data_size) {
+        const auto *header = reinterpret_cast<const ArchivedStructHeader *>(data);
+        if(data_size < sizeof(*header)) {
+            eprintf_error("ParserStruct::parse_archived_struct(): data is too small to fit a header");
+            throw std::exception();
+        }
+        if(header->version != ArchivedStructHeader::ARCHIVE_VERSION) {
+            eprintf_error("ParserStruct::parse_archived_struct(): invalid header version passed");
+            throw std::exception();
+        }
+        data_size -= sizeof(*header);
+        data_size += sizeof(*header);
+
+        std::vector<std::unique_ptr<ParserStruct>> structs;
+        std::uint32_t remainder = header->count.read();
+    }
+
+    std::unique_ptr<ParserStruct> ParserStruct::parse_archived_struct(const std::byte *data, std::size_t data_size) {
+        std::terminate();
+    }
 }
