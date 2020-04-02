@@ -1,23 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
-# Parser files
+# Generate this first
 set(INVADER_PARSER_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/invader/tag/hek/definition.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/invader/tag/parser/parser.hpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-save-hek-data.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-read-hek-data.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-read-cache-file-data.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-cache-format.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-cache-deformat.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-refactor-reference.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-struct-value.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-broken-enums.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-invalid-references.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-invalid-ranges.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-invalid-indices.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/bitfield.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/enum.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/parser/"
 )
+file(REMOVE_RECURSE "${CMAKE_CURRENT_BINARY_DIR}/parser/")
+file(GLOB PARSER_DEFINITIONS "${CMAKE_CURRENT_SOURCE_DIR}/src/tag/hek/definition/*.json")
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/src/tag/code_generator" ${INVADER_PARSER_FILES} ${INVADER_EXTRACT_HIDDEN_VALUES} ${PARSER_DEFINITIONS})
+
+# make the parser
+file(GLOB PARSER_CPP_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/parser/*.cpp")
 
 # Invader library
 set(INVADER_SOURCE_FILES
@@ -26,20 +20,7 @@ set(INVADER_SOURCE_FILES
     "${CMAKE_CURRENT_BINARY_DIR}/demo-getter.cpp"
     "${CMAKE_CURRENT_BINARY_DIR}/custom-edition-getter.cpp"
     "${CMAKE_CURRENT_BINARY_DIR}/resource-list.cpp"
-
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-save-hek-data.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-read-hek-data.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-read-cache-file-data.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-cache-format.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-cache-deformat.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-refactor-reference.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-struct-value.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-invalid-references.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-invalid-ranges.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-invalid-indices.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/parser-check-broken-enums.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/bitfield.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/enum.cpp"
+    ${PARSER_CPP_SOURCES}
 
     src/hek/class_int.cpp
     src/hek/data_type.cpp
@@ -140,12 +121,6 @@ add_library(invader-bitmap-p8-palette STATIC
 
 # This is fun
 option(INVADER_EXTRACT_HIDDEN_VALUES "Extract (most) hidden values; used for debugging Invader ONLY - this WILL break tags")
-
-# Include definition script
-add_custom_command(
-    OUTPUT ${INVADER_PARSER_FILES}
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/src/tag/code_generator" ${INVADER_PARSER_FILES} ${INVADER_EXTRACT_HIDDEN_VALUES} "${CMAKE_CURRENT_SOURCE_DIR}/src/tag/hek/definition/*"
-)
 
 # Include version script
 add_custom_command(

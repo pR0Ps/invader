@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
+import os
 from compile import make_cache_format_data
 from generate_hek_tag_data import make_cpp_save_hek_data
 from read_cache_file_data import make_parse_cache_file_data
@@ -13,21 +14,8 @@ from check_invalid_references import make_check_invalid_references
 from check_invalid_ranges import make_check_invalid_ranges
 from check_invalid_indices import make_check_invalid_indices
 
-def make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, extract_hidden, hpp, cpp_save_hek_data, cpp_read_cache_file_data, cpp_read_hek_data, cpp_cache_format_data, cpp_cache_deformat_data, cpp_refactor_reference, cpp_struct_value, cpp_check_broken_enums, cpp_check_invalid_references, cpp_check_invalid_ranges, cpp_check_invalid_indices):
-    def write_for_all_cpps(what):
-        cpp_save_hek_data.write(what)
-        cpp_read_cache_file_data.write(what)
-        cpp_read_hek_data.write(what)
-        cpp_cache_format_data.write(what)
-        cpp_cache_deformat_data.write(what)
-        cpp_struct_value.write(what)
-        cpp_check_broken_enums.write(what)
-        cpp_check_invalid_references.write(what)
-        cpp_check_invalid_ranges.write(what)
-        cpp_check_invalid_indices.write(what)
-
+def make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, extract_hidden, hpp, parser_sources_dir):
     hpp.write("// SPDX-License-Identifier: GPL-3.0-only\n\n// This file was auto-generated.\n// If you want to edit this, edit the .json definitions and rerun the generator script, instead.\n\n")
-    write_for_all_cpps("// SPDX-License-Identifier: GPL-3.0-only\n\n// This file was auto-generated.\n// If you want to edit this, edit the .json definitions and rerun the generator script, instead.\n\n")
     header_name = "INVADER__TAG__PARSER__PARSER_HPP"
     hpp.write("#ifndef {}\n".format(header_name))
     hpp.write("#define {}\n\n".format(header_name))
@@ -40,17 +28,6 @@ def make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, ext
     hpp.write("}\n")
     hpp.write("namespace Invader::Parser {\n")
 
-    write_for_all_cpps("#include <invader/tag/parser/parser.hpp>\n")
-    write_for_all_cpps("#include <invader/map/map.hpp>\n")
-    write_for_all_cpps("#include <invader/map/tag.hpp>\n")
-    write_for_all_cpps("#include <invader/tag/hek/header.hpp>\n")
-    write_for_all_cpps("#include <invader/printf.hpp>\n")
-    cpp_cache_format_data.write("#include <invader/build/build_workload.hpp>\n")
-    cpp_read_cache_file_data.write("#include <invader/file/file.hpp>\n")
-    cpp_read_hek_data.write("#include <invader/file/file.hpp>\n")
-    cpp_save_hek_data.write("extern \"C\" std::uint32_t crc32(std::uint32_t crc, const void *buf, std::size_t size) noexcept;\n")
-    write_for_all_cpps("namespace Invader::Parser {\n")
-
     for s in all_structs_arranged:
         struct_name = s["name"]
         post_cache_deformat = "post_cache_deformat" in s and s["post_cache_deformat"]
@@ -60,7 +37,8 @@ def make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, ext
         postprocess_hek_data = "postprocess_hek_data" in s and s["postprocess_hek_data"]
         read_only = "read_only" in s and s["read_only"]
         private_functions = post_cache_deformat
-
+        hpp.write("\n")
+        hpp.write("    #ifdef USE_{}\n".format(s["name"]))
         hpp.write("    struct {} : public ParserStruct {{\n".format(struct_name))
         hpp.write("        using struct_big = HEK::{}<HEK::BigEndian>;\n".format(struct_name))
         hpp.write("        using struct_little = HEK::{}<HEK::LittleEndian>;\n".format(struct_name))
@@ -106,18 +84,33 @@ def make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, ext
                 continue
         add_structs_from_struct(s)
 
-        make_cache_deformat(post_cache_deformat, all_used_structs, struct_name, hpp, cpp_cache_deformat_data)
-        make_cache_format_data(struct_name, s, pre_compile, post_compile, all_used_structs, hpp, cpp_cache_format_data, all_enums, all_structs_arranged)
-        make_cpp_save_hek_data(extract_hidden, all_used_structs, struct_name, hpp, cpp_save_hek_data)
-        make_parse_cache_file_data(post_cache_parse, all_used_structs, struct_name, hpp, cpp_read_cache_file_data)
-        make_parse_hek_tag_data(postprocess_hek_data, struct_name, all_used_structs, hpp, cpp_read_hek_data)
-        make_parse_hek_tag_file(struct_name, hpp, cpp_read_hek_data)
-        make_refactor_reference(all_used_structs, struct_name, hpp, cpp_read_hek_data)
-        make_parser_struct(cpp_struct_value, all_enums, all_bitfields, all_used_structs, hpp, struct_name, extract_hidden, read_only, None if not "title" in s else s["title"])
-        make_check_broken_enums(all_enums, all_used_structs, struct_name, hpp, cpp_check_broken_enums)
-        make_check_invalid_references(all_used_structs, struct_name, hpp, cpp_check_invalid_references)
-        make_check_invalid_ranges(all_used_structs, struct_name, hpp, cpp_check_invalid_ranges)
-        make_check_invalid_indices(all_used_structs, struct_name, hpp, cpp_check_invalid_indices, all_structs_arranged)
+        with open(os.path.join(parser_sources_dir, struct_name + ".cpp"), "w") as cpp:
+            cpp.write("// SPDX-License-Identifier: GPL-3.0-only\n\n// This file was auto-generated.\n// If you want to edit this, edit the .json definitions and rerun the generator script, instead.\n\n")
+            cpp.write("#define INVADER_DO_NOT_USE_EVERYTHING\n")
+            cpp.write("#define USE_{}\n".format(struct_name))
+            cpp.write("#include <invader/tag/hek/header.hpp>\n")
+            cpp.write("extern \"C\" std::uint32_t crc32(std::uint32_t crc, const void *buf, std::size_t size) noexcept;\n")
+            cpp.write("#include <invader/tag/parser/parser.hpp>\n")
+            cpp.write("#include <invader/printf.hpp>\n")
+            cpp.write("#include <invader/build/build_workload.hpp>\n")
+            cpp.write("#include <invader/map/map.hpp>\n")
+            cpp.write("#include <invader/map/tag.hpp>\n")
+            cpp.write("#include <invader/file/file.hpp>\n")
+            cpp.write("#include <invader/tag/hek/header.hpp>\n")
+            cpp.write("namespace Invader::Parser {\n")
+            make_cache_deformat(post_cache_deformat, all_used_structs, struct_name, hpp, cpp)
+            make_cache_format_data(struct_name, s, pre_compile, post_compile, all_used_structs, hpp, cpp, all_enums, all_structs_arranged)
+            make_parse_cache_file_data(post_cache_parse, all_used_structs, struct_name, hpp, cpp)
+            make_cpp_save_hek_data(extract_hidden, all_used_structs, struct_name, hpp, cpp)
+            make_parse_hek_tag_file(struct_name, hpp, cpp)
+            make_parse_hek_tag_data(postprocess_hek_data, struct_name, all_used_structs, hpp, cpp)
+            make_refactor_reference(all_used_structs, struct_name, hpp, cpp)
+            make_parser_struct(cpp, all_enums, all_bitfields, all_used_structs, hpp, struct_name, extract_hidden, read_only, None if not "title" in s else s["title"])
+            make_check_broken_enums(all_enums, all_used_structs, struct_name, hpp, cpp)
+            make_check_invalid_references(all_used_structs, struct_name, hpp, cpp)
+            make_check_invalid_indices(all_used_structs, struct_name, hpp, cpp, all_structs_arranged)
+            make_check_invalid_ranges(all_used_structs, struct_name, hpp, cpp)
+            cpp.write("}\n")
 
         hpp.write("        ~{}() override = default;\n".format(struct_name))
 
@@ -137,12 +130,7 @@ def make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, ext
             hpp.write("        void post_compile(BuildWorkload &workload, std::size_t tag_index, std::size_t struct_index, std::size_t offset);\n")
 
         hpp.write("    };\n")
+        hpp.write("\n\n    #endif\n\n")
     hpp.write("}\n")
     hpp.write("#endif\n")
-    write_for_all_cpps("}\n")
     hpp.close()
-    cpp_save_hek_data.close()
-    cpp_read_cache_file_data.close()
-    cpp_read_hek_data.close()
-    cpp_cache_format_data.close()
-    cpp_cache_deformat_data.close()

@@ -7,20 +7,21 @@ import os
 from definition import make_definitions
 from parser import make_parser
 
-bitfield_cpp = 14
-
-if len(sys.argv) < bitfield_cpp+4:
-    print("Usage: {} <definition.hpp> <parser.hpp> <parser-save-hek-data.cpp> <parser-read-hek-data.cpp> <parser-read-cache-file-data.cpp> <parser-cache-format.cpp> <parser-cache-deformat.cpp> <parser-refactor-reference.cpp> <parser-struct-value.cpp> <parser-check-broken-enums.cpp> <parser-check-invalid-references.cpp> <parser-check-invalid-ranges.cpp> <bitfield.cpp> <enum.cpp> <extract-hidden> <json> [json [...]]".format(sys.argv[0]), file=sys.stderr)
+if len(sys.argv) < 6:
+    print("Usage: {} <definition.hpp> <parser.hpp> <parser-sources-dir> <extract-hidden> <json> [json [...]]".format(sys.argv[0]), file=sys.stderr)
     sys.exit(1)
+
+parser_sources_dir = sys.argv[3]
+os.makedirs(parser_sources_dir, exist_ok=True)
 
 files = []
 all_enums = []
 all_bitfields = []
 all_structs = []
 
-extract_hidden = True if sys.argv[bitfield_cpp+2].lower() == "on" else False
+extract_hidden = True if sys.argv[4].lower() == "on" else False
 
-for i in range(bitfield_cpp+3, len(sys.argv)):
+for i in range(5, len(sys.argv)):
     def make_name_fun(name, ignore_numbers):
         name = name.replace(" ", "_").replace("'", "").replace("-","_").replace("(","").replace(")","")
         if not ignore_numbers and name[0].isnumeric():
@@ -98,6 +99,7 @@ def add_struct(name):
     if "inherits" in struct_to_add:
         dependencies.append(struct_to_add["inherits"])
 
+    # Add hard dependencies
     for f in s["fields"]:
         if f["type"] == "TagReflexive":
             if f["struct"] not in dependencies:
@@ -105,7 +107,14 @@ def add_struct(name):
 
     for d in dependencies:
         add_struct(d)
-
+        
+    # Add indexed dependencies
+    for f in s["fields"]:
+        if f["type"] == "Index" and "struct" in f:
+            if f["struct"] not in dependencies:
+                dependencies.append(f["struct"])
+        
+    struct_to_add["all_dependencies"] = dependencies
     all_structs_arranged.append(struct_to_add)
 
 for s in all_structs:
@@ -115,20 +124,9 @@ def to_hex(number):
     return "0x{:X}".format(number)
 
 with open(sys.argv[1], "w") as f:
-    with open(sys.argv[bitfield_cpp], "w") as bcpp:
-        with open(sys.argv[bitfield_cpp+1], "w") as ecpp:
+    with open(os.path.join(parser_sources_dir, "bitfield.cpp"), "w") as bcpp:
+        with open(os.path.join(parser_sources_dir, "enum.cpp"), "w") as ecpp:
             make_definitions(f, ecpp, bcpp, all_enums, all_bitfields, all_structs_arranged)
 
 with open(sys.argv[2], "w") as hpp:
-    with open(sys.argv[3], "w") as cpp_save_hek_data:
-        with open(sys.argv[4], "w") as cpp_read_cache_file_data:
-            with open(sys.argv[5], "w") as cpp_read_hek_data:
-                with open(sys.argv[6], "w") as cpp_cache_format_data:
-                    with open(sys.argv[7], "w") as cpp_cache_deformat_data:
-                        with open(sys.argv[8], "w") as cpp_refactor_reference:
-                            with open(sys.argv[9], "w") as cpp_struct_value:
-                                with open(sys.argv[10], "w") as cpp_check_broken_enums:
-                                    with open(sys.argv[11], "w") as cpp_check_invalid_references:
-                                        with open(sys.argv[12], "w") as cpp_check_invalid_ranges:
-                                            with open(sys.argv[13], "w") as cpp_check_invalid_indices:
-                                                make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, extract_hidden, hpp, cpp_save_hek_data, cpp_read_cache_file_data, cpp_read_hek_data, cpp_cache_format_data, cpp_cache_deformat_data, cpp_refactor_reference, cpp_struct_value, cpp_check_broken_enums, cpp_check_invalid_references, cpp_check_invalid_ranges, cpp_check_invalid_indices)
+     make_parser(all_enums, all_bitfields, all_structs_arranged, all_structs, extract_hidden, hpp, parser_sources_dir)

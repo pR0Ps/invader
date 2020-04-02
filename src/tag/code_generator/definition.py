@@ -110,8 +110,32 @@ def make_definitions(f, ecpp, bcpp, all_enums, all_bitfields, all_structs_arrang
 
     # Now the hard part
     padding_present = False
+    
+    f.write("#define USE_GBXModelVertexUncompressed\n")
+    f.write("#ifndef INVADER_DO_NOT_USE_EVERYTHING\n".format(header_name))
+    for s in all_structs_arranged:
+        f.write("#define USE_{}\n".format(s["name"]))
+    f.write("#endif\n")
+    
+    for s in all_structs_arranged:
+        f.write("    #ifdef USE_{}\n".format(s["name"]))
+        added_dependencies = []
+        def write_dependency_for_thing(dep):
+            if dep in added_dependencies:
+                return
+            added_dependencies.append(dep)
+            for i in all_structs_arranged:
+                if i["name"] == dep:
+                    f.write("    #define USE_{}\n".format(dep))
+                    for q in i["all_dependencies"]:
+                        write_dependency_for_thing(q)
+                    return
+        for d in s["all_dependencies"]:
+            write_dependency_for_thing(d)
+        f.write("    #endif\n")
 
     for s in all_structs_arranged:
+        f.write("    #ifdef USE_{}\n".format(s["name"]))
         f.write("    ENDIAN_TEMPLATE(EndianType) struct {} {}{{\n".format(s["name"], ": {}<EndianType> ".format(s["inherits"]) if "inherits" in s else ""))
         for n in s["fields"]:
             type_to_write = n["type"]
@@ -191,7 +215,8 @@ def make_definitions(f, ecpp, bcpp, all_enums, all_bitfields, all_structs_arrang
         f.write("        }\n")
 
         f.write("    };\n")
-        f.write("    static_assert(sizeof({}<NativeEndian>) == 0x{:X});\n\n".format(s["name"], s["size"]))
+        f.write("    static_assert(sizeof({}<NativeEndian>) == 0x{:X});\n".format(s["name"], s["size"]))
+        f.write("    #endif\n\n")
 
     f.write("}\n\n")
     f.write("#endif\n")
