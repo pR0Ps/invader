@@ -7,7 +7,7 @@ import os
 from definition import make_definitions
 from parser import make_parser
 
-if len(sys.argv) < 6:
+if len(sys.argv) < 5:
     print("Usage: {} <definition.hpp> <parser.hpp> <parser-sources-dir> <extract-hidden> <json> [json [...]]".format(sys.argv[0]), file=sys.stderr)
     sys.exit(1)
 

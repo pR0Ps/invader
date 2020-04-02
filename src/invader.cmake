@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
+# This is fun
+option(INVADER_EXTRACT_HIDDEN_VALUES "Extract (most) hidden values; used for debugging Invader ONLY - this WILL break tags")
+
 # Generate this first
 set(INVADER_PARSER_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/invader/tag/hek/definition.hpp"
@@ -118,9 +121,6 @@ add_dependencies(invader invader-header-gen invader-header-version)
 add_library(invader-bitmap-p8-palette STATIC
     "${CMAKE_CURRENT_BINARY_DIR}/p8_palette.cpp"
 )
-
-# This is fun
-option(INVADER_EXTRACT_HIDDEN_VALUES "Extract (most) hidden values; used for debugging Invader ONLY - this WILL break tags")
 
 # Include version script
 add_custom_command(
