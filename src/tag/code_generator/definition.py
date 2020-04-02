@@ -5,6 +5,32 @@ def make_definitions(f, ecpp, bcpp, all_enums, all_bitfields, all_structs_arrang
     header_name = "INVADER__TAG__HEK__CLASS__DEFINITION_HPP"
     f.write("#ifndef {}\n".format(header_name))
     f.write("#define {}\n\n".format(header_name))
+    
+    f.write("#define USE_GBXModelVertexUncompressed\n")
+    f.write("#ifndef INVADER_DO_NOT_USE_EVERYTHING\n".format(header_name))
+    for s in all_structs_arranged:
+        f.write("#define USE_{}\n".format(s["name"]))
+    f.write("#endif\n")
+    
+    for s in all_structs_arranged:
+        if len(s["all_dependencies"]) == 0:
+            continue
+        f.write("#ifdef USE_{}\n".format(s["name"]))
+        added_dependencies = []
+        def write_dependency_for_thing(dep):
+            if dep in added_dependencies:
+                return
+            added_dependencies.append(dep)
+            for i in all_structs_arranged:
+                if i["name"] == dep:
+                    f.write("#define USE_{}\n".format(dep))
+                    for q in i["all_dependencies"]:
+                        write_dependency_for_thing(q)
+                    return
+        for d in s["all_dependencies"]:
+            write_dependency_for_thing(d)
+        f.write("#endif\n")
+        
     f.write("#include \"../../hek/data_type.hpp\"\n\n")
     f.write("namespace Invader::HEK {\n")
 
@@ -110,29 +136,6 @@ def make_definitions(f, ecpp, bcpp, all_enums, all_bitfields, all_structs_arrang
 
     # Now the hard part
     padding_present = False
-    
-    f.write("#define USE_GBXModelVertexUncompressed\n")
-    f.write("#ifndef INVADER_DO_NOT_USE_EVERYTHING\n".format(header_name))
-    for s in all_structs_arranged:
-        f.write("#define USE_{}\n".format(s["name"]))
-    f.write("#endif\n")
-    
-    for s in all_structs_arranged:
-        f.write("    #ifdef USE_{}\n".format(s["name"]))
-        added_dependencies = []
-        def write_dependency_for_thing(dep):
-            if dep in added_dependencies:
-                return
-            added_dependencies.append(dep)
-            for i in all_structs_arranged:
-                if i["name"] == dep:
-                    f.write("    #define USE_{}\n".format(dep))
-                    for q in i["all_dependencies"]:
-                        write_dependency_for_thing(q)
-                    return
-        for d in s["all_dependencies"]:
-            write_dependency_for_thing(d)
-        f.write("    #endif\n")
 
     for s in all_structs_arranged:
         f.write("    #ifdef USE_{}\n".format(s["name"]))
