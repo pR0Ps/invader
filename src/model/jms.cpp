@@ -6,6 +6,8 @@
 using namespace Invader::Model;
 using namespace Invader::HEK;
 
+#define JMS_VERSION 8200
+
 static std::optional<std::string> read_word(const char *word, const char **word_end);
 static std::optional<TagString> read_tagstring(const char *word, const char **word_end);
 static long long read_int(const char *word, const char **word_end);
@@ -14,52 +16,61 @@ static Quaternion<NativeEndian> read_quat(const char *word, const char **word_en
 static Point3D<NativeEndian> read_point3d(const char *word, const char **word_end);
 static Vector3D<NativeEndian> read_vector3d(const char *word, const char **word_end);
 
+static std::string write_vector3d(const Vector3D<NativeEndian> &vec);
+static std::string write_point3d(const Point3D<NativeEndian> &point);
+static std::string write_quat(const Quaternion<NativeEndian> &quat);
+static std::string write_float(double f);
+static std::string write_int(long long i);
+static std::string write_tagstring(const TagString &ts);
+
 void JMS::import_jms(const char *jms, const char **jms_end) {
     auto version = read_int(jms, &jms);
-    if(version != 8200) {
+    if(version != JMS_VERSION) {
         throw std::exception(); // invalid version
     }
     read_int(jms, &jms); // skip this
     
-    // Go through each node
-    auto node_count = read_int(jms, &jms);
-    for(long long i = 0; i < node_count; i++) {
-        this->nodes.emplace_back().import_jms(jms, &jms);
-    }
+    // Go through each thing again
+    auto read_array = [&jms](auto &array) {
+        auto count = read_int(jms, &jms);
+        for(long long i = 0; i < count; i++) {
+            array.emplace_back().import_jms(jms, &jms);
+        }
+    };
     
-    // Go through each material now
-    auto material_count = read_int(jms, &jms);
-    for(long long i = 0; i < material_count; i++) {
-        this->materials.emplace_back().import_jms(jms, &jms);
-    }
-    
-    // Go through each marker
-    auto marker_count = read_int(jms, &jms);
-    for(long long i = 0; i < marker_count; i++) {
-        this->markers.emplace_back().import_jms(jms, &jms);
-    }
-    
-    // Go through each marker
-    auto region_count = read_int(jms, &jms);
-    for(long long i = 0; i < region_count; i++) {
-        this->regions.emplace_back().import_jms(jms, &jms);
-    }
-    
-    // Go through each vertex
-    auto vertex_count = read_int(jms, &jms);
-    for(long long i = 0; i < vertex_count; i++) {
-        this->vertices.emplace_back().import_jms(jms, &jms);
-    }
-    
-    // Go through each triangle
-    auto triangle_count = read_int(jms, &jms);
-    for(long long i = 0; i < triangle_count; i++) {
-        this->triangles.emplace_back().import_jms(jms, &jms);
-    }
+    // Make it!
+    read_array(this->nodes);
+    read_array(this->materials);
+    read_array(this->markers);
+    read_array(this->regions);
+    read_array(this->vertices);
+    read_array(this->triangles);
 
     if(jms_end) {
         *jms_end = jms;
     }
+}
+
+std::string JMS::export_jms() const {
+    std::string value = write_int(JMS_VERSION) + "\n" + write_int(0) + "\n";
+    
+    // Go through each thing again
+    auto write_array = [&value](auto &array) {
+        value += write_int(array.size()) + "\n";
+        for(auto &i : array) {
+            value += i.export_jms() + "\n";
+        }
+    };
+    
+    // Write it!
+    write_array(this->nodes);
+    write_array(this->materials);
+    write_array(this->markers);
+    write_array(this->regions);
+    write_array(this->vertices);
+    write_array(this->triangles);
+    
+    return value;
 }
 
 void JMS::Node::import_jms(const char *jms, const char **jms_end) {
@@ -70,9 +81,17 @@ void JMS::Node::import_jms(const char *jms, const char **jms_end) {
     this->position = read_point3d(jms, jms_end);
 }
 
+std::string JMS::Node::export_jms() const {
+    return write_tagstring(this->name) + "\n" + write_int(this->first_child_node) + "\n" + write_int(this->sibling_node_index) + "\n" + write_quat(this->rotation) + "\n" + write_point3d(this->position);
+}
+
 void JMS::Material::import_jms(const char *jms, const char **jms_end) {
     this->name = read_tagstring(jms, &jms).value();
     this->tif_path = read_word(jms, jms_end).value();
+}
+
+std::string JMS::Material::export_jms() const {
+    return write_tagstring(this->name) + "\n" + this->tif_path;
 }
 
 void JMS::Marker::import_jms(const char *jms, const char **jms_end) {
@@ -82,8 +101,16 @@ void JMS::Marker::import_jms(const char *jms, const char **jms_end) {
     this->position = read_point3d(jms, jms_end);
 }
 
+std::string JMS::Marker::export_jms() const {
+    return write_tagstring(this->name) + "\n" + write_int(this->region) + "\n" + write_quat(this->rotation) + "\n" + write_point3d(this->position) + "\n" + write_float(this->radius);
+}
+
 void JMS::Region::import_jms(const char *jms, const char **jms_end) {
     this->name = read_tagstring(jms, jms_end).value();
+}
+
+std::string JMS::Region::export_jms() const {
+    return write_tagstring(this->name);
 }
 
 void JMS::Vertex::import_jms(const char *jms, const char **jms_end) {
@@ -95,12 +122,39 @@ void JMS::Vertex::import_jms(const char *jms, const char **jms_end) {
     this->texture_coordinates = read_point3d(jms, jms_end);
 }
 
+std::string JMS::Vertex::export_jms() const {
+    return write_int(this->node0) + write_point3d(this->position) + "\n" + write_vector3d(this->normal) + "\n" + write_int(this->node1) + "\n" + write_float(this->node1_weight) + "\n" +  write_point3d(this->texture_coordinates);
+}
+
 void JMS::Triangle::import_jms(const char *jms, const char **jms_end) {
     this->region = static_cast<Index>(read_int(jms, &jms));
     this->shader = static_cast<Index>(read_int(jms, &jms));
     this->vertices[0] = static_cast<Index>(read_int(jms, &jms));
     this->vertices[1] = static_cast<Index>(read_int(jms, &jms));
     this->vertices[2] = static_cast<Index>(read_int(jms, jms_end));
+}
+
+std::string JMS::Triangle::export_jms() const {
+    return write_int(this->region) + "\n" + write_int(this->shader) + "\n" + write_int(this->vertices[0]) + "\t" + write_int(this->vertices[1]) + "\t" + write_int(this->vertices[2]);
+}
+
+static std::string write_vector3d(const Vector3D<NativeEndian> &vec) {
+    return write_float(vec.i.read()) + "\t" + write_float(vec.j.read()) + "\t" + write_float(vec.k.read());
+}
+static std::string write_point3d(const Point3D<NativeEndian> &point) {
+    return write_vector3d(point);
+}
+static std::string write_quat(const Quaternion<NativeEndian> &quat) {
+    return write_float(quat.i.read()) + "\t" + write_float(quat.j.read()) + "\t" + write_float(quat.k.read()) + "\t" + write_float(quat.w.read());
+}
+static std::string write_float(double f) {
+    return std::to_string(f);
+}
+static std::string write_int(long long i) {
+    return std::to_string(i);
+}
+static std::string write_tagstring(const TagString &ts) {
+    return std::string(ts.string);
 }
 
 // Read the word, treating tabs, newlines, and nulls as the end of the word.

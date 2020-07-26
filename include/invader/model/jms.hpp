@@ -22,6 +22,12 @@ namespace Invader::Model {
              * @param jms_end if non-null, this will be set to the end of all read data
              */
             void import_jms(const char *jms, const char **jms_end = nullptr);
+            
+            /**
+             * Export into JMS data
+             * @return jms data
+             */
+            std::string export_jms() const;
         };
         struct Material {
             HEK::TagString name;
@@ -33,6 +39,12 @@ namespace Invader::Model {
              * @param jms_end if non-null, this will be set to the end of all read data
              */
             void import_jms(const char *jms, const char **jms_end = nullptr);
+            
+            /**
+             * Export into JMS data
+             * @return jms data
+             */
+            std::string export_jms() const;
         };
         struct Marker {
             HEK::TagString name;
@@ -47,6 +59,12 @@ namespace Invader::Model {
              * @param jms_end if non-null, this will be set to the end of all read data
              */
             void import_jms(const char *jms, const char **jms_end = nullptr);
+            
+            /**
+             * Export into JMS data
+             * @return jms data
+             */
+            std::string export_jms() const;
         };
         struct Region {
             HEK::TagString name;
@@ -57,6 +75,12 @@ namespace Invader::Model {
             * @param jms_end if non-null, this will be set to the end of all read data
             */
             void import_jms(const char *jms, const char **jms_end = nullptr);
+            
+            /**
+             * Export into JMS data
+             * @return jms data
+             */
+            std::string export_jms() const;
         };
         struct Vertex {
             HEK::Index node0;
@@ -72,6 +96,12 @@ namespace Invader::Model {
              * @param jms_end if non-null, this will be set to the end of all read data
              */
             void import_jms(const char *jms, const char **jms_end = nullptr);
+            
+            /**
+             * Export into JMS data
+             * @return jms data
+             */
+            std::string export_jms() const;
         };
         struct Triangle {
             HEK::Index region;
@@ -84,6 +114,12 @@ namespace Invader::Model {
              * @param jms_end if non-null, this will be set to the end of all read data
              */
             void import_jms(const char *jms, const char **jms_end = nullptr);
+            
+            /**
+             * Export into JMS data
+             * @return jms data
+             */
+            std::string export_jms() const;
         };
         
         std::vector<Node> nodes;
@@ -104,9 +140,7 @@ namespace Invader::Model {
          * Export the JMS data
          * @return jms data
          */
-        std::string export_jms() const {
-            throw std::exception();
-        }
+        std::string export_jms() const;
         
         /**
          * Write the JMS data to a model tag
