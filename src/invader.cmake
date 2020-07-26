@@ -85,6 +85,7 @@ set(INVADER_SOURCE_FILES
     src/script/compiler.cpp
     src/script/script_tree.cpp
     src/script/tokenizer.cpp
+    src/model/jms.cpp
     src/compress/compression.cpp
     src/tag/hek/header.cpp
     src/tag/hek/class/bitmap.cpp
