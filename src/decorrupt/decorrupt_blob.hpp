@@ -12,12 +12,15 @@ namespace Invader::Decorrupt {
         enum DecorruptBlobMagic : std::uint32_t {
             DECORRUPT_BLOB_MAGIC = 0x4D455732
         };
+        enum DecorruptBlobVersion : std::uint32_t {
+            DECORRUPT_DEFAULT_BLOB_VERSION = 1
+        };
         
         /** Blob magic */
         HEK::LittleEndian<DecorruptBlobMagic> blob_magic = DecorruptBlobMagic::DECORRUPT_BLOB_MAGIC;
         
         /** Version of the decorrupt blob format used */
-        HEK::LittleEndian<std::uint32_t> version = 1;
+        HEK::LittleEndian<DecorruptBlobVersion> version = DecorruptBlobVersion::DECORRUPT_DEFAULT_BLOB_VERSION;
         
         /** Cache file engine used */
         HEK::LittleEndian<HEK::CacheFileEngine> cache_file_engine;

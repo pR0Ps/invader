@@ -151,5 +151,10 @@ namespace Invader {
      * This is thrown when a resource map was not supplied when it should have
      */
     DEFINE_EXCEPTION(ResourceMapRequiredException, "no resource map was supplied");
+
+    /**
+     * This is thrown when trying to open an invalid decorruption blob
+     */
+    DEFINE_EXCEPTION(InvalidDecorruptionBlobException, "decorrupt blob is invalid");
 }
 #endif
