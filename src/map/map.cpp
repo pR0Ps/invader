@@ -5,14 +5,17 @@
 #include <invader/resource/hek/resource_map.hpp>
 #include <invader/compress/compression.hpp>
 #include <invader/resource/resource_map.hpp>
+#include <invader/resource/resource_map.hpp>
 #include <invader/map/map.hpp>
 #include <invader/file/file.hpp>
+#include <invader/decorrupt/decorrupt_workload.hpp>
 
 namespace Invader {
     Map Map::map_with_copy(const std::byte *data, std::size_t data_size,
                            const std::byte *bitmaps_data, std::size_t bitmaps_data_size,
                            const std::byte *loc_data, std::size_t loc_data_size,
-                           const std::byte *sounds_data, std::size_t sounds_data_size) {
+                           const std::byte *sounds_data, std::size_t sounds_data_size,
+                           const std::byte *decorrupted_data_data, std::size_t decorrupted_data_size) {
         Map map;
         if(!map.decompress_if_needed(data, data_size)) {
             map.data_m.insert(map.data_m.end(), data, data + data_size);
@@ -28,6 +31,9 @@ namespace Invader {
         map.loc_data_m.insert(map.loc_data_m.end(), loc_data, loc_data + loc_data_size);
         map.loc_data = map.loc_data_m.data();
         map.loc_data_length = loc_data_size;
+        if(decorrupted_data_size) {
+            map.decorrupted_data = Decorrupt::DecorruptWorkload::decompress_decorrupted_file(std::vector<std::byte>(decorrupted_data_data, decorrupted_data_data + decorrupted_data_size));
+        }
         map.load_map();
         return map;
     }
@@ -35,28 +41,35 @@ namespace Invader {
     Map Map::map_with_move(std::vector<std::byte> &&data,
                            std::vector<std::byte> &&bitmaps_data,
                            std::vector<std::byte> &&loc_data,
-                           std::vector<std::byte> &&sounds_data) {
+                           std::vector<std::byte> &&sounds_data,
+                           std::vector<std::byte> &&decorrupted_data) {
         Map map;
-        if(map.decompress_if_needed(data.data(), data.size())) {
-            data.clear();
+        std::vector<std::byte> data_gotten = data;
+        if(map.decompress_if_needed(data_gotten.data(), data_gotten.size())) {
+            data_gotten.clear();
         }
         else {
-            map.data_m = data;
+            map.data_m = std::move(data_gotten);
         }
         map.data = map.data_m.data();
         map.data_length = map.data_m.size();
 
-        map.bitmap_data_m = bitmaps_data;
+        map.bitmap_data_m = std::move(bitmaps_data);
         map.bitmap_data = map.bitmap_data_m.data();
         map.bitmap_data_length = map.bitmap_data_m.size();
 
-        map.sound_data_m = sounds_data;
+        map.sound_data_m = std::move(sounds_data);
         map.sound_data = map.sound_data_m.data();
         map.sound_data_length = map.sound_data_m.size();
 
-        map.loc_data_m = loc_data;
+        map.loc_data_m = std::move(loc_data);
         map.loc_data = map.loc_data_m.data();
         map.loc_data_length = map.loc_data_m.size();
+        
+        std::vector<std::byte> decorrupted_data_gotten = std::move(decorrupted_data);
+        if(decorrupted_data_gotten.size()) {
+            map.decorrupted_data = Decorrupt::DecorruptWorkload::decompress_decorrupted_file(decorrupted_data_gotten);
+        }
         
         map.load_map();
         return map;
@@ -561,6 +574,7 @@ namespace Invader {
         this->model_index_offset = move.model_index_offset;
         this->model_data_size = move.model_data_size;
         this->asset_indices_offset = move.asset_indices_offset;
+        this->decorrupted_data = std::move(move.decorrupted_data);
 
         if(this->data_m.size()) {
             this->data = this->data_m.data();

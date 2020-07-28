@@ -86,6 +86,7 @@ set(INVADER_SOURCE_FILES
     src/script/script_tree.cpp
     src/script/tokenizer.cpp
     src/compress/compression.cpp
+    src/decorrupt/decorrupt_workload.cpp
     src/tag/hek/header.cpp
     src/tag/hek/class/bitmap.cpp
     src/tag/hek/class/model_collision_geometry/intersection_check.cpp
