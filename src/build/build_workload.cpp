@@ -20,6 +20,14 @@ namespace Invader {
 
     #define TAG_DATA_HEADER_STRUCT (structs[0])
     #define TAG_ARRAY_STRUCT (structs[1])
+    
+    BuildWorkload::BuildParameters::BuildParameters(const char *scenario, HEK::CacheFileEngine engine_target) : scenario(scenario), engine_target(engine_target) {
+        switch(engine_target) {
+            case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION: {
+                this->
+            }
+        }
+    }
 
     bool BuildWorkload::BuildWorkloadStruct::can_dedupe(const BuildWorkload::BuildWorkloadStruct &other) const noexcept {
         if(this->unsafe_to_dedupe || other.unsafe_to_dedupe || (this->bsp.has_value() && this->bsp != other.bsp)) {
@@ -38,21 +46,7 @@ namespace Invader {
 
     BuildWorkload::BuildWorkload() : ErrorHandler() {}
 
-    std::vector<std::byte> BuildWorkload::compile_map (
-        const char *scenario,
-        const std::vector<std::string> &tags_directories,
-        HEK::CacheFileEngine engine_target,
-        std::string maps_directory,
-        RawDataHandling raw_data_handling,
-        bool verbose,
-        const std::optional<std::vector<std::pair<TagClassInt, std::string>>> &with_index,
-        const std::optional<std::uint32_t> &forge_crc,
-        const std::optional<std::uint32_t> &tag_data_address,
-        const std::optional<std::string> &rename_scenario,
-        bool optimize_space,
-        bool compress,
-        bool hide_pedantic_warnings
-    ) {
+    std::vector<std::byte> BuildWorkload::compile_map(const BuildParameters &parameters) {
         BuildWorkload workload;
 
         // Start benchmark

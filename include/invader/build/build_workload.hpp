@@ -34,36 +34,100 @@ namespace Invader {
         };
         
         /**
-         * Compile a map
-         * @param scenario               scenario tag to use
-         * @param tags_directories       tags directories to use
-         * @param engine_target          target a specific engine
-         * @param maps_directory         maps directory to use; ignored if building a Dark Circlet map
-         * @param with_index             tag index to use
-         * @param raw_data_handling      select how to handle raw data
-         * @param verbose                output non-error messages to console
-         * @param forge_crc              forge the CRC32 of the map
-         * @param tag_data_address       address the tag data will be loaded to
-         * @param rename_scenario        rename the scenario's base name (preserving the root path)
-         * @param optimize_space         should dedupe structs
-         * @param compress               Zstd-compress the resulting map file
-         * @param hide_pedantic_warnings hide pedantic warnings
+         * Engine build target (for Xbox maps)
          */
-        static std::vector<std::byte> compile_map (
-            const char *scenario,
-            const std::vector<std::string> &tags_directories,
-            HEK::CacheFileEngine engine_target = HEK::CacheFileEngine::CACHE_FILE_NATIVE,
-            std::string maps_directory = std::string(),
-            RawDataHandling raw_data_handling = RawDataHandling::RAW_DATA_HANDLING_DEFAULT,
-            bool verbose = false,
-            const std::optional<std::vector<std::pair<TagClassInt, std::string>>> &with_index = std::nullopt,
-            const std::optional<std::uint32_t> &forge_crc = std::nullopt,
-            const std::optional<std::uint32_t> &tag_data_address = std::nullopt,
-            const std::optional<std::string> &rename_scenario = std::nullopt,
-            bool optimize_space = false,
-            bool compress = false,
-            bool hide_pedantic_warnings = false
-        );
+        enum EngineBuild {};
+        
+        /**
+         * Parameters for building maps
+         */
+        struct BuildParameters {
+            /**
+             * Tags directory to use
+             */
+            std::vector<std::string> tags_directories;
+            
+            /**
+             * Engine target to use
+             */
+            HEK::CacheFileEngine engine_target = HEK::CacheFileEngine::CACHE_FILE_NATIVE;
+            
+            /**
+             * Maps directory to use
+             */
+            std::optional<std::string> maps_directory;
+            
+            /**
+             * How to handle raw data
+             */
+            RawDataHandling raw_data_handling = RawDataHandling::RAW_DATA_HANDLING_DEFAULT;
+            
+            /**
+             * Forge the CRC32 to this value
+             */
+            std::optional<std::uint32_t> forge_crc;
+            
+            /**
+             * Use the tag data address
+             */
+            std::optional<std::uint32_t> tag_data_address;
+            
+            /**
+             * Rename the base name of the scenario (this renames the output map)
+             */
+            std::optional<std::string> rename_scenario;
+            
+            /**
+             * Tag data size to use
+             */
+            std::optional<std::uint64_t> tag_data_size;
+            
+            /**
+             * Optimize the tag space
+             */
+            bool optimize_space = false;
+            
+            /**
+             * Compress the map
+             */
+            bool compress = true;
+            
+            /**
+             * Show diagnostics (besides warnings and errors)
+             */
+            bool verbose = true;
+            
+            /**
+             * Hide pedantic warnings
+             */
+            bool hide_pedantic_warnings = false;
+            
+            /**
+             * Engine build to use
+             */
+            std::optional<EngineBuild> engine_build;
+            
+            /**
+             * BSPs count against tag space?
+             */
+            bool bsps_use_tag_space = true;
+            
+            /**
+             * Instantiate a build parameters, passing the scenario and engine target
+             * @param engine_target engine target to use
+             */
+            BuildParameters(HEK::CacheFileEngine engine_target);
+            
+            BuildParameters(const BuildParameters &) = default;
+        };
+        
+        /**
+         * Compile a map
+         * @param scenario   scenario path to use
+         * @param parameters build parameters to use
+         * @return           byte data of resulting cache file
+         */
+        static std::vector<std::byte> compile_map(const char *scenario, const BuildParameters &parameters);
 
         /**
          * Compile a single tag
