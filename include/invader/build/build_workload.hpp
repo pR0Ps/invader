@@ -34,11 +34,6 @@ namespace Invader {
         };
         
         /**
-         * Engine build target (for Xbox maps)
-         */
-        enum EngineBuild {};
-        
-        /**
          * Parameters for building maps
          */
         struct BuildParameters {
@@ -70,7 +65,7 @@ namespace Invader {
             /**
              * Use the tag data address
              */
-            std::optional<std::uint32_t> tag_data_address;
+            std::uint32_t tag_data_address;
             
             /**
              * Rename the base name of the scenario (this renames the output map)
@@ -80,12 +75,17 @@ namespace Invader {
             /**
              * Tag data size to use
              */
-            std::optional<std::uint64_t> tag_data_size;
+            std::uint64_t tag_data_size;
             
             /**
              * Optimize the tag space
              */
             bool optimize_space = false;
+            
+            /**
+             * Use resource map indices
+             */
+            bool use_resource_indices = false;
             
             /**
              * Compress the map
@@ -105,7 +105,7 @@ namespace Invader {
             /**
              * Engine build to use
              */
-            std::optional<EngineBuild> engine_build;
+            std::string engine_build;
             
             /**
              * BSPs count against tag space?
@@ -315,7 +315,7 @@ namespace Invader {
         bool building_stock_map = false;
 
         /** Engine target */
-        HEK::CacheFileEngine engine_target;
+        const BuildParameters &build_parameters;
 
         /** Part count */
         std::size_t part_count = 0;
@@ -340,7 +340,7 @@ namespace Invader {
         ~BuildWorkload() override = default;
 
     private:
-        BuildWorkload();
+        BuildWorkload(const BuildParameters &build_parameters);
 
         std::chrono::steady_clock::time_point start;
         const char *scenario;
@@ -358,11 +358,8 @@ namespace Invader {
         void generate_bitmap_sound_data(std::size_t file_offset);
         HEK::TagString scenario_name = {};
         void set_scenario_name(const char *name);
-        std::optional<std::uint32_t> forge_crc;
-        bool verbose = false;
         std::size_t raw_bitmap_size = 0;
         std::size_t raw_sound_size = 0;
-        bool compress = false;
         void externalize_tags() noexcept;
         void delete_raw_data(std::size_t index);
         std::size_t stubbed_tag_count = 0;

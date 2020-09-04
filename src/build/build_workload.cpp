@@ -21,11 +21,31 @@ namespace Invader {
     #define TAG_DATA_HEADER_STRUCT (structs[0])
     #define TAG_ARRAY_STRUCT (structs[1])
     
-    BuildWorkload::BuildParameters::BuildParameters(const char *scenario, HEK::CacheFileEngine engine_target) : scenario(scenario), engine_target(engine_target) {
+    BuildWorkload::BuildParameters::BuildParameters(HEK::CacheFileEngine engine_target) : engine_target(engine_target) {
         switch(engine_target) {
-            case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION: {
-                this->
-            }
+            case HEK::CacheFileEngine::CACHE_FILE_DEMO:
+                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_DEMO_BASE_MEMORY_ADDRESS;
+                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
+                break;
+            case HEK::CacheFileEngine::CACHE_FILE_XBOX:
+                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_XBOX_BASE_MEMORY_ADDRESS;
+                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
+                this->engine_build = "01.10.12.2276";
+                break;
+            case HEK::CacheFileEngine::CACHE_FILE_NATIVE:
+                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_NATIVE_BASE_MEMORY_ADDRESS;
+                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH_NATIVE;
+                break;
+            case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:
+                this->use_resource_indices = true;
+                [[fallthrough]];
+            case HEK::CacheFileEngine::CACHE_FILE_RETAIL:
+                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_PC_BASE_MEMORY_ADDRESS;
+                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
+                break;
+            default:
+                eprintf_error("Invalid engine target passed to BuildParameters()");
+                std::terminate();
         }
     }
 
@@ -44,10 +64,10 @@ namespace Invader {
         return false;
     }
 
-    BuildWorkload::BuildWorkload() : ErrorHandler() {}
+    BuildWorkload::BuildWorkload(const BuildParameters &build_parameters) : ErrorHandler(), build_parameters(build_parameters) {}
 
-    std::vector<std::byte> BuildWorkload::compile_map(const BuildParameters &parameters) {
-        BuildWorkload workload;
+    std::vector<std::byte> BuildWorkload::compile_map(const char *scenario, const BuildParameters &build_parameters) {
+        BuildWorkload workload(build_parameters);
 
         // Start benchmark
         workload.start = std::chrono::steady_clock::now();
