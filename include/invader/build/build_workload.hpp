@@ -12,6 +12,7 @@
 #include "../resource/resource_map.hpp"
 #include "../tag/parser/parser.hpp"
 #include "../error_handler/error_handler.hpp"
+#include "../file/file.hpp"
 
 namespace Invader {
     class BuildWorkload : public ErrorHandler {
@@ -34,23 +35,75 @@ namespace Invader {
         };
         
         /**
+         * Select the engine type
+         */
+        enum EngineType {
+            /**
+             * Native engine (Invader)
+             * - No resource maps
+             * - BSPs are stored as regular tags
+             * - 64-bit pointers
+             * - Build string can be anything
+             */
+            ENGINE_TYPE_NATIVE,
+            
+            /**
+             * PC engine (Gearbox)
+             * - Resource maps
+             * - Only one BSP tag is loaded at once; BSPs are outside of the tag data block
+             * - 32-bit pointers
+             * - Build string can be anything
+             */
+            ENGINE_TYPE_PC,
+            
+            /**
+             * Xbox engine (Bungie)
+             * - No resource maps
+             * - Only one BSP tag is loaded at once; BSPs are outside of the tag data block
+             * - 32-bit pointers
+             * - Build string is executable-specific
+             */
+            ENGINE_TYPE_XBOX
+        };
+        
+        /**
          * Parameters for building maps
          */
         struct BuildParameters {
             /**
              * Tags directory to use
              */
-            std::vector<std::string> tags_directories;
+            std::vector<std::filesystem::path> tags_directories;
+            
+            /**
+             * Engine type
+             */
+            EngineType engine_type;
             
             /**
              * Engine target to use
              */
             HEK::CacheFileEngine engine_target = HEK::CacheFileEngine::CACHE_FILE_NATIVE;
+
+            /**
+             * Bitmaps resources
+             */
+            std::optional<std::vector<Resource>> bitmaps;
+
+            /**
+             * Sounds resources
+             */
+            std::optional<std::vector<Resource>> sounds;
+
+            /**
+             * Loc resources
+             */
+            std::optional<std::vector<Resource>> loc;
             
             /**
-             * Maps directory to use
+             * Index to use
              */
-            std::optional<std::string> maps_directory;
+            std::optional<std::vector<File::TagFilePath>> index;
             
             /**
              * How to handle raw data
@@ -76,6 +129,11 @@ namespace Invader {
              * Tag data size to use
              */
             std::uint64_t tag_data_size;
+            
+            /**
+             * Pointer the BSP is loaded to
+             */
+            std::optional<HEK::Pointer64> bsp_data_end;
             
             /**
              * Optimize the tag space
@@ -268,16 +326,7 @@ namespace Invader {
             /** Tag path offset of the tag */
             std::size_t path_offset;
         };
-
-        /** Bitmaps resources */
-        std::vector<Resource> bitmaps;
-
-        /** Sounds resources */
-        std::vector<Resource> sounds;
-
-        /** Loc resources */
-        std::vector<Resource> loc;
-
+        
         /** Structs being worked with */
         std::vector<BuildWorkloadStruct> structs;
 
@@ -307,9 +356,6 @@ namespace Invader {
 
         /** Recursion is disabled - also disables showing most errors as well as various tags using other tags' data */
         bool disable_recursion = false;
-
-        /** Hide pedantic warnings */
-        bool hide_pedantic_warnings = false;
 
         /** Are we building a stock map? */
         bool building_stock_map = false;
@@ -345,12 +391,9 @@ namespace Invader {
         std::chrono::steady_clock::time_point start;
         const char *scenario;
         std::size_t scenario_index;
-        std::uint32_t tag_data_address;
-        std::size_t tag_data_size;
         std::vector<std::byte> build_cache_file();
         void add_tags();
         void generate_tag_array();
-        bool optimize_space;
         void dedupe_structs();
         std::vector<std::vector<std::byte>> map_data_structs;
         std::vector<std::byte> all_raw_data;

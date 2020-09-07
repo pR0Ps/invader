@@ -46,14 +46,15 @@ namespace Invader::Parser {
         }
         
         // Warn based on format
+        auto engine_target = workload.build_parameters.engine_target;
         switch(this->format) {
             case HEK::SoundFormat::SOUND_FORMAT_FLAC:
-                if(workload.cache_file_type != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+                if(engine_target != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
                     REPORT_ERROR_PRINTF(workload, ERROR_TYPE_ERROR, tag_index, "Sound permutation #%zu uses FLAC which does not exist on the target engine", permutation_index);
                 }
                 break;
             case HEK::SoundFormat::SOUND_FORMAT_OGG_VORBIS:
-                if(workload.cache_file_type == HEK::CacheFileEngine::CACHE_FILE_XBOX) {
+                if(engine_target == HEK::CacheFileEngine::CACHE_FILE_XBOX) {
                     REPORT_ERROR_PRINTF(workload, ERROR_TYPE_ERROR, tag_index, "Sound permutation #%zu uses Ogg Vorbis which does not exist on the target engine", permutation_index);
                 }
                 break;
@@ -61,8 +62,8 @@ namespace Invader::Parser {
                 REPORT_ERROR_PRINTF(workload, ERROR_TYPE_WARNING, tag_index, "Sound permutation #%zu uses IMA ADPCM is unsupported on the target engine", permutation_index);
                 break;
             case HEK::SoundFormat::SOUND_FORMAT_16_BIT_PCM:
-                if(workload.cache_file_type != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
-                    REPORT_ERROR_PRINTF(workload, ERROR_TYPE_WARNING_PEDANTIC, tag_index, "Sound permutation #%zu uses 16-bit PCM will not play on the target engine without a mod", permutation_index);
+                if(engine_target != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+                    REPORT_ERROR_PRINTF(workload, ERROR_TYPE_WARNING, tag_index, "Sound permutation #%zu uses 16-bit PCM will not play on the target engine without a mod", permutation_index);
                 }
                 break;
             case HEK::SoundFormat::SOUND_FORMAT_XBOX_ADPCM:
@@ -183,7 +184,7 @@ namespace Invader::Parser {
             REPORT_ERROR_PRINTF(workload, ERROR_TYPE_ERROR, tag_index, "Sound format does not match %zu permutation%s.", errors, errors == 1 ? "" : "s");
         }
 
-        if(sound->channel_count == HEK::SoundChannelCount::SOUND_CHANNEL_COUNT_MONO && sound->sample_rate == HEK::SoundSampleRate::SOUND_SAMPLE_RATE_44100_HZ && workload.engine_target != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+        if(sound->channel_count == HEK::SoundChannelCount::SOUND_CHANNEL_COUNT_MONO && sound->sample_rate == HEK::SoundSampleRate::SOUND_SAMPLE_RATE_44100_HZ && workload.build_parameters.engine_target != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
             REPORT_ERROR_PRINTF(workload, ERROR_TYPE_WARNING, tag_index, "Sound is 44.1 kHz AND mono. The target engine will not play this.");
         }
 

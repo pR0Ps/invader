@@ -23,25 +23,38 @@ namespace Invader {
     
     BuildWorkload::BuildParameters::BuildParameters(HEK::CacheFileEngine engine_target) : engine_target(engine_target) {
         switch(engine_target) {
+            // Demo
             case HEK::CacheFileEngine::CACHE_FILE_DEMO:
                 this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_DEMO_BASE_MEMORY_ADDRESS;
-                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
-                break;
-            case HEK::CacheFileEngine::CACHE_FILE_XBOX:
-                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_XBOX_BASE_MEMORY_ADDRESS;
-                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
-                this->engine_build = "01.10.12.2276";
-                break;
-            case HEK::CacheFileEngine::CACHE_FILE_NATIVE:
-                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_NATIVE_BASE_MEMORY_ADDRESS;
-                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH_NATIVE;
-                break;
+                goto more_halo_pc;
+                
+            // Custom Edition and retail Halo PC
             case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:
                 this->use_resource_indices = true;
                 [[fallthrough]];
             case HEK::CacheFileEngine::CACHE_FILE_RETAIL:
                 this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_PC_BASE_MEMORY_ADDRESS;
+                goto more_halo_pc;
+                
+            // All PC derivatives
+            more_halo_pc:
                 this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
+                this->engine_type = EngineType::ENGINE_TYPE_PC;
+                this->bsp_data_end = this->tag_data_address + this->tag_data_size;
+                break;
+                
+            // Xbox
+            case HEK::CacheFileEngine::CACHE_FILE_XBOX:
+                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_XBOX_BASE_MEMORY_ADDRESS;
+                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
+                this->engine_build = "01.10.12.2276";
+                this->engine_type = EngineType::ENGINE_TYPE_XBOX;
+                break;
+                
+            case HEK::CacheFileEngine::CACHE_FILE_NATIVE:
+                this->tag_data_address = HEK::CacheFileTagDataBaseMemoryAddress::CACHE_FILE_NATIVE_BASE_MEMORY_ADDRESS;
+                this->tag_data_size = HEK::CacheFileLimits::CACHE_FILE_MEMORY_LENGTH_NATIVE;
+                this->engine_type = EngineType::ENGINE_TYPE_NATIVE;
                 break;
             default:
                 eprintf_error("Invalid engine target passed to BuildParameters()");
@@ -73,229 +86,50 @@ namespace Invader {
         workload.start = std::chrono::steady_clock::now();
 
         // Hide these?
-        if((workload.hide_pedantic_warnings = hide_pedantic_warnings)) {
+        if(build_parameters.hide_pedantic_warnings) {
             workload.set_reporting_level(REPORTING_LEVEL_HIDE_ALL_PEDANTIC_WARNINGS);
         }
 
         auto scenario_name_fixed = File::preferred_path_to_halo_path(scenario);
         workload.scenario = scenario_name_fixed.c_str();
-        workload.tags_directories = &tags_directories;
-        workload.engine_target = engine_target;
-        workload.optimize_space = optimize_space;
-        workload.verbose = verbose;
-        workload.compress = compress;
-
-        // Set defaults
-        if(raw_data_handling == RawDataHandling::RAW_DATA_HANDLING_DEFAULT) {
-            switch(engine_target) {
-                case HEK::CacheFileEngine::CACHE_FILE_NATIVE:
-                    raw_data_handling = RawDataHandling::RAW_DATA_HANDLING_RETAIN_ALL;
-                    break;
-
-                default:
-                    break;
-            }
-        }
 
         // Native maps can only use these
-        if(raw_data_handling != RawDataHandling::RAW_DATA_HANDLING_RETAIN_ALL && engine_target == HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+        if(build_parameters.raw_data_handling != RawDataHandling::RAW_DATA_HANDLING_RETAIN_ALL && build_parameters.engine_target == HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+            eprintf_error("only native can use RAW_DATA_HANDLING_RETAIN_ALL");
             throw InvalidArgumentException();
         }
 
         // Only Custom Edition can use this
-        if(raw_data_handling == RawDataHandling::RAW_DATA_HANDLING_ALWAYS_INDEX && engine_target != HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION) {
+        if(build_parameters.raw_data_handling == RawDataHandling::RAW_DATA_HANDLING_ALWAYS_INDEX && build_parameters.engine_target != HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION) {
+            eprintf_error("only custom can use RAW_DATA_HANDLING_ALWAYS_INDEX");
             throw InvalidArgumentException();
         }
 
-        workload.raw_data_handling = raw_data_handling;
-
-        // Attempt to open the resource map
-        auto open_resource_map = [&maps_directory, &workload](const char *map, const char *map_alt = nullptr) -> std::vector<Resource> {
-            if(workload.raw_data_handling == RawDataHandling::RAW_DATA_HANDLING_RETAIN_ALL || workload.raw_data_handling == RawDataHandling::RAW_DATA_HANDLING_REMOVE_ALL) {
-                return std::vector<Resource>();
-            }
-            else {
-                if(map_alt) {
-                    oprintf("Reading %s or %s...", map, map_alt);
-                }
-                else {
-                    oprintf("Reading %s...", map);
-                }
-                oflush();
-
-                // Make two paths
-                auto map_path = std::filesystem::path(maps_directory) / map;
-                auto map_path_str = map_path.string();
-                auto map_path_alt = std::filesystem::path(maps_directory) / (map_alt ? map_alt : map);
-                auto map_path_alt_str = map_path_alt.string();
-
-                // Try to open either
-                auto map_data = Invader::File::open_file(map_path_str.c_str());
-                if(!map_data.has_value() && map_alt) {
-                    map_data = Invader::File::open_file(map_path_alt_str.c_str());
-                }
-
-                if(!map_data.has_value()) {
-                    oprintf(" failed\n");
-                    if(map_alt) {
-                        REPORT_ERROR_PRINTF(workload, ERROR_TYPE_FATAL_ERROR, std::nullopt, "Failed to open %s or %s", map_path_str.c_str(), map_path_alt_str.c_str());
-                    }
-                    else {
-                        REPORT_ERROR_PRINTF(workload, ERROR_TYPE_FATAL_ERROR, std::nullopt, "Failed to open %s", map_path_str.c_str());
-                    }
-                    throw FailedToOpenFileException();
-                }
-                oprintf(" done\n");
-                return load_resource_map(map_data->data(), map_data->size());
-            }
-        };
-
         // Set the scenario name too
-        if(rename_scenario.has_value()) {
-            workload.set_scenario_name((*rename_scenario).c_str());
+        if(build_parameters.rename_scenario.has_value()) {
+            workload.set_scenario_name((*build_parameters.rename_scenario).c_str());
         }
         else {
             workload.set_scenario_name(scenario_name_fixed.c_str());
         }
-
-        // If no index was provided, see if we can get one
-        std::vector<std::pair<TagClassInt, std::string>> use_index;
-        if(with_index.has_value()) {
-            use_index = *with_index;
-        }
-        else {
-            switch(engine_target) {
-                case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:
-                    use_index = custom_edition_indices(workload.scenario_name.string);
-                    break;
-                case HEK::CacheFileEngine::CACHE_FILE_RETAIL:
-                    use_index = retail_indices(workload.scenario_name.string);
-                    break;
-                case HEK::CacheFileEngine::CACHE_FILE_DEMO:
-                    use_index = demo_indices(workload.scenario_name.string);
-                    break;
-                default:
-                    break;
-            }
-            if(use_index.size()) {
-                oprintf_success_lesser_warn("Using built-in indices for %s...", workload.scenario_name.string);
-            }
-        }
-        auto index_size = use_index.size();
-
-        // If we have one, continue on
+        
+        // If we have an index, reserve it
+        auto index_size = build_parameters.index.has_value() ? build_parameters.index->size() : 0;
         if(index_size) {
             auto &error_reporter_tags = workload.get_tag_paths();
             error_reporter_tags.reserve(index_size);
             workload.tags.reserve(index_size);
-            for(auto &tag : use_index) {
+            for(auto &tag : *build_parameters.index) {
                 auto &new_tag = workload.tags.emplace_back();
-                new_tag.path = tag.second;
-                new_tag.tag_class_int = tag.first;
+                new_tag.path = tag.path;
+                new_tag.tag_class_int = tag.class_int;
                 new_tag.stubbed = true;
-                error_reporter_tags.emplace_back(tag.second, tag.first);
+                error_reporter_tags.emplace_back(tag.path, tag.class_int);
             }
         }
 
-        // Next, if no CRC is passed and we need a CRC, press on
-        if(!forge_crc.has_value() && engine_target == CacheFileEngine::CACHE_FILE_CUSTOM_EDITION) {
-            if(std::strcmp(workload.scenario_name.string, "beavercreek") == 0) {
-                workload.forge_crc = 0x07B3876A;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "bloodgulch") == 0) {
-                workload.forge_crc = 0x7B309554;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "boardingaction") == 0) {
-                workload.forge_crc = 0xF4DEEF94;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "carousel") == 0) {
-                workload.forge_crc = 0x9C301A08;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "chillout") == 0) {
-                workload.forge_crc = 0x93C53C27;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "damnation") == 0) {
-                workload.forge_crc = 0x0FBA059D;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "dangercanyon") == 0) {
-                workload.forge_crc = 0xC410CD74;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "deathisland") == 0) {
-                workload.forge_crc = 0x1DF8C97F;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "gephyrophobia") == 0) {
-                workload.forge_crc = 0xD2872165;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "hangemhigh") == 0) {
-                workload.forge_crc = 0xA7C8B9C6;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "icefields") == 0) {
-                workload.forge_crc = 0x5EC1DEB7;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "infinity") == 0) {
-                workload.forge_crc = 0x0E7F7FE7;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "longest") == 0) {
-                workload.forge_crc = 0xC8F48FF6;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "prisoner") == 0) {
-                workload.forge_crc = 0x43B81A8B;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "putput") == 0) {
-                workload.forge_crc = 0xAF2F0B84;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "ratrace") == 0) {
-                workload.forge_crc = 0xF7F8E14C;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "sidewinder") == 0) {
-                workload.forge_crc = 0xBD95CF55;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "timberland") == 0) {
-                workload.forge_crc = 0x54446470;
-            }
-            else if(std::strcmp(workload.scenario_name.string, "wizard") == 0) {
-                workload.forge_crc = 0xCF3359B1;
-            }
-            if(workload.forge_crc.has_value()) {
-                oprintf_success_lesser_warn("Using built-in CRC32 for %s...", workload.scenario_name.string);
-            }
-        }
-        else {
-            workload.forge_crc = forge_crc;
-        }
-
-        // Set the tag data address
-        switch(engine_target) {
-            case CacheFileEngine::CACHE_FILE_NATIVE:
-                workload.tag_data_address = CacheFileTagDataBaseMemoryAddress::CACHE_FILE_NATIVE_BASE_MEMORY_ADDRESS;
-                workload.tag_data_size = CacheFileLimits::CACHE_FILE_MEMORY_LENGTH_NATIVE;
-                break;
-            case CacheFileEngine::CACHE_FILE_DEMO:
-                workload.tag_data_address = CacheFileTagDataBaseMemoryAddress::CACHE_FILE_DEMO_BASE_MEMORY_ADDRESS;
-                workload.tag_data_size = CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
-                workload.bitmaps = open_resource_map("bitmaps.map");
-                workload.sounds = open_resource_map("sounds.map");
-                break;
-            case CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:
-                workload.tag_data_address = CacheFileTagDataBaseMemoryAddress::CACHE_FILE_PC_BASE_MEMORY_ADDRESS;
-                workload.tag_data_size = CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
-                workload.loc = open_resource_map("custom_loc.map", "loc.map");
-                workload.bitmaps = open_resource_map("custom_bitmaps.map", "bitmaps.map");
-                workload.sounds = open_resource_map("custom_sounds.map", "sounds.map");
-                break;
-            default:
-                workload.tag_data_address = CacheFileTagDataBaseMemoryAddress::CACHE_FILE_PC_BASE_MEMORY_ADDRESS;
-                workload.tag_data_size = CacheFileLimits::CACHE_FILE_MEMORY_LENGTH;
-                workload.bitmaps = open_resource_map("bitmaps.map");
-                workload.sounds = open_resource_map("sounds.map");
-                break;
-        }
-
-        if(tag_data_address.has_value()) {
-            workload.tag_data_address = *tag_data_address;
-        }
-
-        if(engine_target != CacheFileEngine::CACHE_FILE_NATIVE && (0x100000000ull - workload.tag_data_address) < workload.tag_data_size) {
+        // Make sure we can actually fit this!
+        if(build_parameters.engine_target != CacheFileEngine::CACHE_FILE_NATIVE && (0x100000000ull - build_parameters.tag_data_address) < build_parameters.tag_data_size) {
             eprintf_error("Specified tag data address cannot contain the entire tag space");
             throw InvalidArgumentException();
         }

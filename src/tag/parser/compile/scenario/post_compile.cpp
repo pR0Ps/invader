@@ -100,7 +100,7 @@ namespace Invader::Parser {
             auto *bsp_tag_struct = &workload.structs[workload.tags[b.structure_bsp.tag_id.index].base_struct.value()];
             
             // If we're not on native, we need to read the pointer at the beginning of the struct
-            if(workload.engine_target != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+            if(workload.build_parameters.engine_type != BuildWorkload::EngineType::ENGINE_TYPE_NATIVE) {
                 bsp_tag_struct = &workload.structs[bsp_tag_struct->resolve_pointer(static_cast<std::size_t>(0)).value()];
             }
 
@@ -555,7 +555,7 @@ namespace Invader::Parser {
                     auto *bsp_tag_struct = &workload.structs[workload.tags[bsp_id.index].base_struct.value()];
                     
                     // If we're not on native, we need to read the pointer at the beginning of the struct
-                    if(workload.engine_target != HEK::CacheFileEngine::CACHE_FILE_NATIVE) {
+                    if(workload.build_parameters.engine_type != BuildWorkload::EngineType::ENGINE_TYPE_NATIVE) {
                         bsp_tag_struct = &workload.structs[bsp_tag_struct->resolve_pointer(static_cast<std::size_t>(0)).value()];
                     }
                     

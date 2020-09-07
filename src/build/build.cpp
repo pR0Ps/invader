@@ -12,6 +12,7 @@
 #include <invader/printf.hpp>
 #include <invader/command_line_option.hpp>
 #include <invader/file/file.hpp>
+#include <invader/tag/index/index.hpp>
 
 enum ReturnValue : int {
     RETURN_OK = 0,
@@ -179,9 +180,9 @@ int main(int argc, const char **argv) {
 
     try {
         // Get the index
-        std::optional<std::vector<std::pair<TagClassInt, std::string>>> with_index;
+        std::optional<std::vector<Invader::File::TagFilePath>> with_index;
         if(build_options.index.size()) {
-            with_index = std::vector<std::pair<TagClassInt, std::string>>();
+            with_index = std::vector<Invader::File::TagFilePath>();
             
             std::fstream index_file(build_options.index, std::ios_base::in);
             std::string tag;
@@ -214,7 +215,7 @@ int main(int argc, const char **argv) {
                     c = std::tolower(c);
                 }
 
-                with_index->emplace_back(extension_to_tag_class(extension), substr_v.data());
+                with_index->emplace_back(substr_v.data(), extension_to_tag_class(extension));
             }
         }
 
@@ -240,22 +241,182 @@ int main(int argc, const char **argv) {
                     break;
             }
         }
+        
+        // Instantiate build parameters
+        BuildWorkload::BuildParameters build_parameters(*build_options.engine);
+        build_parameters.raw_data_handling = build_options.raw_data_handling;
+        
+        // Attempt to open the resource map
+        auto open_resource_map = [&build_options, &build_parameters](const char *map, const char *map_alt = nullptr) -> std::vector<Resource> {
+            if(build_parameters.raw_data_handling == BuildWorkload::RawDataHandling::RAW_DATA_HANDLING_RETAIN_ALL || build_parameters.raw_data_handling == BuildWorkload::RawDataHandling::RAW_DATA_HANDLING_REMOVE_ALL) {
+                return std::vector<Resource>();
+            }
+            else {
+                if(map_alt) {
+                    oprintf("Reading %s or %s...", map, map_alt);
+                }
+                else {
+                    oprintf("Reading %s...", map);
+                }
+                oflush();
+
+                // Make two paths
+                auto map_path = std::filesystem::path(build_options.maps) / map;
+                auto map_path_str = map_path.string();
+                auto map_path_alt = std::filesystem::path(build_options.maps) / (map_alt ? map_alt : map);
+                auto map_path_alt_str = map_path_alt.string();
+
+                // Try to open either
+                auto map_data = Invader::File::open_file(map_path_str.c_str());
+                if(!map_data.has_value() && map_alt) {
+                    map_data = Invader::File::open_file(map_path_alt_str.c_str());
+                }
+
+                if(!map_data.has_value()) {
+                    oprintf(" failed\n");
+                    if(map_alt) {
+                        eprintf_error("Failed to open %s or %s", map_path_str.c_str(), map_path_alt_str.c_str());
+                    }
+                    else {
+                        eprintf_error("Failed to open %s", map_path_str.c_str());
+                    }
+                    throw FailedToOpenFileException();
+                }
+                oprintf(" done\n");
+                return load_resource_map(map_data->data(), map_data->size());
+            }
+        };
+        
+        // Figure out our scenario name
+        auto scenario_thing = File::preferred_path_to_halo_path(build_options.rename_scenario != nullptr ? build_options.rename_scenario : scenario);
+        const char *scenario_name = scenario_thing.c_str();
+        for(auto *i = scenario_name; *i; i++) {
+            if(*i == '\\') {
+                scenario_name = i + 1;
+            }
+        }
+        
+        // Did we specify an index?
+        if(with_index.has_value()) {
+            build_parameters.index = *with_index;
+        }
+        
+        // If not, make one!
+        else {
+            switch(build_parameters.engine_target) {
+                case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:
+                    build_parameters.index = custom_edition_indices(scenario_name);
+                    break;
+                case HEK::CacheFileEngine::CACHE_FILE_RETAIL:
+                    build_parameters.index = retail_indices(scenario_name);
+                    break;
+                case HEK::CacheFileEngine::CACHE_FILE_DEMO:
+                    build_parameters.index = demo_indices(scenario_name);
+                    break;
+                default:
+                    break;
+            }
+            
+            // If the index is empty, remove it
+            if(build_parameters.index.has_value() && build_parameters.index->size() == 0) {
+                build_parameters.index = std::nullopt;
+            }
+            
+            // Note if we have built-in indices being used
+            if(build_parameters.index.has_value()) {
+                oprintf_success_lesser_warn("Using built-in indices for %s...", scenario_name);
+            }
+        }
+        
+        // Are we forging the CRC?
+        if(build_options.forged_crc.has_value()) {
+            build_parameters.forge_crc = build_options.forged_crc;
+        }
+
+        // Next, if no CRC is passed and we need a CRC, press on
+        else if(build_parameters.engine_target == CacheFileEngine::CACHE_FILE_CUSTOM_EDITION) {
+            if(std::strcmp(scenario_name, "beavercreek") == 0) {
+                build_parameters.forge_crc = 0x07B3876A;
+            }
+            else if(std::strcmp(scenario_name, "bloodgulch") == 0) {
+                build_parameters.forge_crc = 0x7B309554;
+            }
+            else if(std::strcmp(scenario_name, "boardingaction") == 0) {
+                build_parameters.forge_crc = 0xF4DEEF94;
+            }
+            else if(std::strcmp(scenario_name, "carousel") == 0) {
+                build_parameters.forge_crc = 0x9C301A08;
+            }
+            else if(std::strcmp(scenario_name, "chillout") == 0) {
+                build_parameters.forge_crc = 0x93C53C27;
+            }
+            else if(std::strcmp(scenario_name, "damnation") == 0) {
+                build_parameters.forge_crc = 0x0FBA059D;
+            }
+            else if(std::strcmp(scenario_name, "dangercanyon") == 0) {
+                build_parameters.forge_crc = 0xC410CD74;
+            }
+            else if(std::strcmp(scenario_name, "deathisland") == 0) {
+                build_parameters.forge_crc = 0x1DF8C97F;
+            }
+            else if(std::strcmp(scenario_name, "gephyrophobia") == 0) {
+                build_parameters.forge_crc = 0xD2872165;
+            }
+            else if(std::strcmp(scenario_name, "hangemhigh") == 0) {
+                build_parameters.forge_crc = 0xA7C8B9C6;
+            }
+            else if(std::strcmp(scenario_name, "icefields") == 0) {
+                build_parameters.forge_crc = 0x5EC1DEB7;
+            }
+            else if(std::strcmp(scenario_name, "infinity") == 0) {
+                build_parameters.forge_crc = 0x0E7F7FE7;
+            }
+            else if(std::strcmp(scenario_name, "longest") == 0) {
+                build_parameters.forge_crc = 0xC8F48FF6;
+            }
+            else if(std::strcmp(scenario_name, "prisoner") == 0) {
+                build_parameters.forge_crc = 0x43B81A8B;
+            }
+            else if(std::strcmp(scenario_name, "putput") == 0) {
+                build_parameters.forge_crc = 0xAF2F0B84;
+            }
+            else if(std::strcmp(scenario_name, "ratrace") == 0) {
+                build_parameters.forge_crc = 0xF7F8E14C;
+            }
+            else if(std::strcmp(scenario_name, "sidewinder") == 0) {
+                build_parameters.forge_crc = 0xBD95CF55;
+            }
+            else if(std::strcmp(scenario_name, "timberland") == 0) {
+                build_parameters.forge_crc = 0x54446470;
+            }
+            else if(std::strcmp(scenario_name, "wizard") == 0) {
+                build_parameters.forge_crc = 0xCF3359B1;
+            }
+            if(build_parameters.forge_crc.has_value()) {
+                oprintf_success_lesser_warn("Using built-in CRC32 for %s...", scenario_name);
+            }
+        }
+
+        // Load resources maybe
+        switch(build_parameters.engine_target) {
+            case CacheFileEngine::CACHE_FILE_DEMO:
+            case CacheFileEngine::CACHE_FILE_RETAIL:
+                build_parameters.bitmaps = open_resource_map("bitmaps.map");
+                build_parameters.sounds = open_resource_map("sounds.map");
+                break;
+            case CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:
+                build_parameters.loc = open_resource_map("custom_loc.map", "loc.map");
+                build_parameters.bitmaps = open_resource_map("custom_bitmaps.map", "bitmaps.map");
+                build_parameters.sounds = open_resource_map("custom_sounds.map", "sounds.map");
+                break;
+            default:
+                break;
+        }
 
         // Build!
         auto map = Invader::BuildWorkload::compile_map(
             scenario.c_str(),
-            build_options.tags,
-            build_options.engine.value(),
-            build_options.maps,
-            build_options.raw_data_handling,
-            !build_options.quiet,
-            with_index,
-            build_options.forged_crc,
-            std::nullopt,
-            build_options.rename_scenario == nullptr ? std::nullopt : std::optional<std::string>(std::string(build_options.rename_scenario)),
-            build_options.optimize_space,
-            *build_options.compress,
-            build_options.hide_pedantic_warnings
+            build_parameters
         );
 
         // Set the map name

@@ -23,7 +23,7 @@ namespace Invader::Parser {
             bool uses_xbox_multi_order = this->shader_model_flags & HEK::ShaderModelFlagsFlag::SHADER_MODEL_FLAGS_FLAG_USE_XBOX_MULTIPURPOSE_CHANNEL_ORDER;
             bool clear_flag = false;
             
-            switch(workload.engine_target) {
+            switch(workload.build_parameters.engine_target) {
                 case HEK::CacheFileEngine::CACHE_FILE_XBOX:
                     if(!uses_xbox_multi_order) {
                         workload.report_error(BuildWorkload::ErrorType::ERROR_TYPE_WARNING, "The target engine requires Xbox multipurpose channel order; the resulting shader may not appear as intended", tag_index);
@@ -63,7 +63,7 @@ namespace Invader::Parser {
     }
     void ShaderTransparentChicagoExtended::pre_compile(BuildWorkload &workload, std::size_t tag_index, std::size_t, std::size_t) {
         // Error if the target engine can't use it
-        if(workload.engine_target == HEK::CacheFileEngine::CACHE_FILE_XBOX) {
+        if(workload.build_parameters.engine_target == HEK::CacheFileEngine::CACHE_FILE_XBOX) {
             workload.report_error(BuildWorkload::ErrorType::ERROR_TYPE_ERROR, "shader_transparent_chicago_extended tags do not exist on the target engine", tag_index);
         }
         
@@ -83,7 +83,7 @@ namespace Invader::Parser {
     }
     void ShaderTransparentGeneric::pre_compile(BuildWorkload &workload, std::size_t tag_index, std::size_t, std::size_t) {
         // Warn if the target engine can't render it
-        switch(workload.engine_target) {
+        switch(workload.build_parameters.engine_target) {
             case HEK::CacheFileEngine::CACHE_FILE_DEMO:
             case HEK::CacheFileEngine::CACHE_FILE_RETAIL:
             case HEK::CacheFileEngine::CACHE_FILE_CUSTOM_EDITION:

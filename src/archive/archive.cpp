@@ -114,7 +114,9 @@ int main(int argc, const char **argv) {
         std::vector<std::byte> map;
 
         try {
-            map = Invader::BuildWorkload::compile_map(base_tag.data(), archive_options.tags);
+            Invader::BuildWorkload::BuildParameters parameters(Invader::HEK::CacheFileEngine::CACHE_FILE_NATIVE);
+            parameters.tags_directories = std::vector<std::filesystem::path>(archive_options.tags.begin(), archive_options.tags.end());
+            map = Invader::BuildWorkload::compile_map(base_tag.data(), parameters);
         }
         catch(std::exception &e) {
             eprintf_error("Failed to compile scenario %s into a map\n", base_tag.data());
