@@ -136,7 +136,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: invader-${{ github.ref }}.tar.gz
+          name: invader-${{ github.sha }}.tar.gz
           path: ./package.tar.gz
 
       - name: "Create release"
@@ -158,5 +158,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./package.tar.gz
-          asset_name: invader-${{ github.ref }}.tar.gz
+          asset_name: invader-${{ github.sha }}.tar.gz
           asset_content_type: application/gzip
