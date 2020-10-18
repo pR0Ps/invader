@@ -101,7 +101,7 @@ jobs:
 
           # Gross hacks to the generated files to use the host qt's meta-compilation tools
           # Have to change the minor version to match so moc's 'output-dep-file' option (new in 5.15) isn't used
-          qtver=$(/usr/bin/moc -v | cut --delimiter=' ' --fields=2 | cut --delimiter='.' --fields=2)
+          qtminver=$(/usr/bin/moc -v | cut --delimiter=' ' --fields=2 | cut --delimiter='.' --fields=2)
           sed --in-place \
             --expression='s#"[^"]*\(moc\|rcc\)\.exe"#"/usr/bin/\1"#g' \
             --expression="s#\(\"QT_VERSION_MINOR\"[^0-9]*\)[0-9]\+#\1${qtminver}#g" \
@@ -132,6 +132,12 @@ jobs:
           cp -r /usr/x86_64-w64-mingw32/share/qt5/plugins/{platforms,styles,audio} package/
           cd package
           tar -czf ../package.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: invader-${{ github.ref }}.tar.gz
+          path: ./package.tar.gz
 
       - name: "Create release"
         id: create_release
